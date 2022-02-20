@@ -1,18 +1,28 @@
 const { expect } = require("chai");
 
-describe("Greeter", function () {
-  it("Should return the new greeting once it's changed", async function () {
-    const Greeter = await ethers.getContractFactory("Greeter");
-    const greeter = await Greeter.deploy("Hello, world!");
-    await greeter.deployed();
+describe("Recovery", function () {
+  it("Should return the address of the token created", async function () {
 
-    expect(await greeter.greet()).to.equal("Hello, world!");
+    const [deployer, token_creator] = await ethers.getSigners();
 
-    const setGreetingTx = await greeter.setGreeting("Hola, mundo!");
+    const SimpleToken = await ethers.getContractFactory("SimpleToken", deployer);
+    const Recovery = await ethers.getContractFactory("Recovery", deployer);
 
-    // wait until the transaction is mined
-    await setGreetingTx.wait();
+    this.recovery = await Recovery.deploy();
 
-    expect(await greeter.greet()).to.equal("Hola, mundo!");
+    // create new token
+    await this.recovery.connect(token_creator).generateToken("Token", 1000000000);
+
+    // recompute the address
+    this.tokenAddress = ethers.utils.getContractAddress({
+      from: this.recovery.address,
+      nonce: 1
+    })
+
+    // recover contract with tokenAddress
+    this.recoveredContract = await ethers.getContractAt("SimpleToken", this.tokenAddress);
+
+    expect(await this.recoveredContract.name()).to.equal("Token");
+    expect(await this.recoveredContract.balances(token_creator.address)).to.equal(1000000000)
   });
 });
